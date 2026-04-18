@@ -50,32 +50,30 @@
             <section>
                 <h2 class="text-lg font-bold mb-4 border-l-4 border-orange-500 pl-3">精選飯類</h2>
                 <div id="rice-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- 飯類選項將由 JS 動態生成 -->
+                    <!-- 由 JS 動態生成 -->
                 </div>
             </section>
             <section>
                 <h2 class="text-lg font-bold mb-4 border-l-4 border-orange-500 pl-3">美味麵食</h2>
                 <div id="noodles-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- 麵類選項將由 JS 動態生成 -->
+                    <!-- 由 JS 動態生成 -->
                 </div>
             </section>
         </div>
 
-        <!-- 管理頁面 -->
+        <!-- 管理頁面 (純前端模擬) -->
         <div id="view-admin" class="hidden space-y-4">
             <div class="flex justify-between items-center">
                 <h2 class="text-xl font-bold flex items-center gap-2">
-                    <i data-lucide="clipboard-list" class="w-6 h-6"></i> 歷史訂單
+                    <i data-lucide="clipboard-list" class="w-6 h-6"></i> 本次會話訂單
                 </h2>
-                <span id="sync-status" class="text-xs text-gray-400 flex items-center gap-1">
-                    <span class="w-2 h-2 bg-gray-300 rounded-full"></span> 等待驗證中
+                <span class="text-xs text-green-600 flex items-center gap-1 font-medium">
+                    <span class="w-2 h-2 bg-green-500 rounded-full"></span> 本地運行模式
                 </span>
             </div>
             <div id="orders-list" class="space-y-4">
-                <div class="text-center py-12 text-gray-500 italic flex flex-col items-center gap-2">
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
-                    正在啟動連線...
-                </div>
+                <!-- 訂單將在此顯示 -->
+                <div class="text-center py-12 text-gray-500 italic">尚未收到任何訂單</div>
             </div>
         </div>
     </main>
@@ -95,7 +93,7 @@
                     </div>
                 </div>
                 <button onclick="submitOrder()" id="btn-submit" class="bg-orange-600 text-white px-8 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-orange-700 active:scale-95 transition-all shadow-lg shadow-orange-200">
-                    送出訂單 <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    確認送出 <i data-lucide="check" class="w-5 h-5"></i>
                 </button>
             </div>
             <!-- 購物車清單 -->
@@ -106,25 +104,7 @@
     <!-- 底部緩衝 -->
     <div id="footer-spacer" class="hidden h-48"></div>
 
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, Timestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-
-        // 配置處理
-        let firebaseConfig;
-        try {
-            firebaseConfig = JSON.parse(__firebase_config);
-        } catch (e) {
-            firebaseConfig = {}; // 這裡會由環境注入
-        }
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'caise-ordering-system';
-
+    <script>
         // 菜單資料
         const MENU_DATA = {
             rice: [
@@ -148,65 +128,33 @@
             ]
         };
 
-        let currentUser = null;
         let cart = {};
+        let localOrders = []; // 用來暫存本次開啟網頁後的訂單
 
-        // 渲染菜單函數
+        // 渲染菜單
         function renderMenu() {
             const riceContainer = document.getElementById('rice-list');
             const noodleContainer = document.getElementById('noodles-list');
             
-            if (!riceContainer || !noodleContainer) return;
-
-            riceContainer.innerHTML = '';
-            noodleContainer.innerHTML = '';
-
-            MENU_DATA.rice.forEach(item => {
-                riceContainer.innerHTML += `
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group hover:border-orange-200 transition-all">
-                        <div>
-                            <h3 class="font-medium text-gray-800">${item.name}</h3>
-                            <p class="text-orange-600 font-bold mt-1">$${item.price}</p>
-                        </div>
-                        <button onclick="addToCart('${item.id}', '${item.name}', ${item.price})" class="bg-orange-50 text-orange-600 p-2 rounded-lg hover:bg-orange-600 hover:text-white transition-all active:scale-90 shadow-sm">
-                            <i data-lucide="plus" class="w-6 h-6"></i>
-                        </button>
-                    </div>
-                `;
-            });
-
-            MENU_DATA.noodles.forEach(item => {
-                noodleContainer.innerHTML += `
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group hover:border-orange-200 transition-all">
-                        <div>
-                            <h3 class="font-medium text-gray-800">${item.name}</h3>
-                            <p class="text-orange-600 font-bold mt-1">$${item.price}</p>
-                        </div>
-                        <button onclick="addToCart('${item.id}', '${item.name}', ${item.price})" class="bg-orange-50 text-orange-600 p-2 rounded-lg hover:bg-orange-600 hover:text-white transition-all active:scale-90 shadow-sm">
-                            <i data-lucide="plus" class="w-6 h-6"></i>
-                        </button>
-                    </div>
-                `;
-            });
+            riceContainer.innerHTML = MENU_DATA.rice.map(item => createItemHTML(item)).join('');
+            noodleContainer.innerHTML = MENU_DATA.noodles.map(item => createItemHTML(item)).join('');
             
-            // 重新初始化圖示
-            if (window.lucide) lucide.createIcons();
+            lucide.createIcons();
         }
 
-        // 初始化
-        window.addEventListener('DOMContentLoaded', () => {
-            renderMenu();
-            
-            signInAnonymously(auth).catch(err => console.error("Auth error:", err));
-
-            onAuthStateChanged(auth, user => {
-                currentUser = user;
-                if(user) {
-                    document.getElementById('sync-status').innerHTML = '<span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> 已連線';
-                    listenToOrders();
-                }
-            });
-        });
+        function createItemHTML(item) {
+            return `
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center hover:border-orange-200 transition-all">
+                    <div>
+                        <h3 class="font-medium text-gray-800">${item.name}</h3>
+                        <p class="text-orange-600 font-bold mt-1">$${item.price}</p>
+                    </div>
+                    <button onclick="addToCart('${item.id}', '${item.name}', ${item.price})" class="bg-orange-50 text-orange-600 p-2 rounded-lg hover:bg-orange-600 hover:text-white transition-all active:scale-90 shadow-sm">
+                        <i data-lucide="plus" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            `;
+        }
 
         // 頁面切換
         window.switchView = (view) => {
@@ -219,16 +167,15 @@
                 menu.classList.remove('hidden');
                 admin.classList.add('hidden');
                 btnMenu.classList.add('bg-orange-600', 'text-white', 'shadow-md');
-                btnMenu.classList.remove('text-gray-600');
                 btnAdmin.classList.remove('bg-orange-600', 'text-white', 'shadow-md');
                 btnAdmin.classList.add('text-gray-600');
             } else {
                 menu.classList.add('hidden');
                 admin.classList.remove('hidden');
                 btnAdmin.classList.add('bg-orange-600', 'text-white', 'shadow-md');
-                btnAdmin.classList.remove('text-gray-600');
                 btnMenu.classList.remove('bg-orange-600', 'text-white', 'shadow-md');
                 btnMenu.classList.add('text-gray-600');
+                renderOrders();
             }
         };
 
@@ -270,12 +217,10 @@
             
             let totalQty = 0;
             let totalPrice = 0;
-            itemsList.innerHTML = '';
-
-            itemsArray.forEach(item => {
+            itemsList.innerHTML = itemsArray.map(item => {
                 totalQty += item.quantity;
                 totalPrice += (item.price * item.quantity);
-                itemsList.innerHTML += `
+                return `
                     <div class="flex justify-between items-center text-sm bg-gray-50 p-2 rounded border border-gray-100">
                         <span class="font-medium">${item.name}</span>
                         <div class="flex items-center gap-3">
@@ -285,84 +230,58 @@
                         </div>
                     </div>
                 `;
-            });
+            }).join('');
 
             count.innerText = totalQty;
             total.innerText = `$${totalPrice}`;
             lucide.createIcons();
         }
 
-        // 送出訂單
-        window.submitOrder = async () => {
-            if(!currentUser) {
-                showMessage('驗證中，請稍候...', 'error');
-                return;
-            }
+        // 送出訂單 (純前端模擬)
+        window.submitOrder = () => {
             const items = Object.values(cart);
             const total = items.reduce((s, i) => s + (i.price * i.quantity), 0);
             
-            const btn = document.getElementById('btn-submit');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="animate-spin">🌀</span>';
+            const newOrder = {
+                id: Math.random().toString(36).substr(2, 9),
+                timestamp: new Date(),
+                items: items,
+                total: total
+            };
 
-            try {
-                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
-                await addDoc(colRef, {
-                    items, total, timestamp: Timestamp.now(), userId: currentUser.uid, status: 'pending'
-                });
-                cart = {};
-                updateCartUI();
-                showMessage('🎉 訂單成功送出！', 'success');
-            } catch (err) {
-                showMessage('送出失敗：' + err.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '送出訂單 <i data-lucide="chevron-right" class="w-5 h-5"></i>';
-                lucide.createIcons();
-            }
+            localOrders.unshift(newOrder); // 加入本地列表最前面
+            cart = {};
+            updateCartUI();
+            showMessage('🎉 訂單已模擬送出！可至管理頁查看。', 'success');
         };
 
-        // 監聽訂單
-        function listenToOrders() {
+        // 渲染歷史訂單
+        function renderOrders() {
             const listContainer = document.getElementById('orders-list');
-            const q = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
-            
-            onSnapshot(q, (snapshot) => {
-                listContainer.innerHTML = '';
-                const docs = snapshot.docs.map(d => ({id: d.id, ...d.data()}))
-                                        .sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+            if (localOrders.length === 0) {
+                listContainer.innerHTML = '<div class="text-center py-12 text-gray-500 italic">目前無歷史紀錄</div>';
+                return;
+            }
 
-                if(docs.length === 0) {
-                    listContainer.innerHTML = '<div class="text-center py-12 text-gray-500 italic">尚未收到任何訂單</div>';
-                    return;
-                }
-
-                docs.forEach(order => {
-                    const date = order.timestamp?.toDate().toLocaleString() || '未知時間';
-                    listContainer.innerHTML += `
-                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-orange-500">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <span class="text-[10px] text-gray-400 font-mono uppercase">#${order.id.slice(-6)}</span>
-                                    <p class="text-sm font-semibold">${date}</p>
-                                </div>
-                                <span class="bg-orange-100 text-orange-600 px-2 py-1 rounded text-xs font-bold">待處理</span>
-                            </div>
-                            <div class="my-3 space-y-1 text-sm">
-                                ${order.items.map(i => `<div class="flex justify-between"><span>${i.name} x${i.quantity}</span><span>$${i.price * i.quantity}</span></div>`).join('')}
-                            </div>
-                            <div class="border-t border-dashed pt-2 flex justify-between font-bold text-orange-600">
-                                <span class="text-xs text-gray-400">總計</span>
-                                <span>$${order.total}</span>
-                            </div>
+            listContainer.innerHTML = localOrders.map(order => `
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-orange-500 animate-slide-up">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <span class="text-[10px] text-gray-400 font-mono uppercase">ID: ${order.id}</span>
+                            <p class="text-sm font-semibold">${order.timestamp.toLocaleString()}</p>
                         </div>
-                    `;
-                });
-            }, (err) => {
-                if(err.code === 'permission-denied') {
-                    listContainer.innerHTML = `<div class="p-4 bg-red-50 text-red-700 rounded-lg text-sm text-center">權限不足，請檢查 Firestore Rules</div>`;
-                }
-            });
+                        <span class="bg-green-100 text-green-600 px-2 py-1 rounded text-xs font-bold tracking-wider">成功</span>
+                    </div>
+                    <div class="my-3 space-y-1 text-sm text-gray-700">
+                        ${order.items.map(i => `<div class="flex justify-between"><span>${i.name} x${i.quantity}</span><span>$${i.price * i.quantity}</span></div>`).join('')}
+                    </div>
+                    <div class="border-t border-dashed pt-2 flex justify-between font-bold text-orange-600">
+                        <span class="text-xs text-gray-400 font-normal">結帳金額</span>
+                        <span>$${order.total}</span>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
         }
 
         function showMessage(text, type) {
@@ -370,8 +289,11 @@
             box.innerText = text;
             box.className = `mb-4 p-4 rounded-lg text-white text-center animate-bounce shadow-lg z-50 ${type === 'success' ? 'bg-green-600' : 'bg-red-600'}`;
             box.classList.remove('hidden');
-            setTimeout(() => box.classList.add('hidden'), 5000);
+            setTimeout(() => box.classList.add('hidden'), 3000);
         }
+
+        // 初始化執行
+        document.addEventListener('DOMContentLoaded', renderMenu);
     </script>
 </body>
 </html>
